@@ -1,10 +1,7 @@
-node 'grafana' {
-  class { 'apache': }             # use apache module
-  apache::vhost { 'example.com':  # define vhost resource
-    port    => '80',
-    docroot => '/var/www/html'
-  }
+mod 'puppet-collectd', '10.1.0'
 
+
+node 'grafana' {
   class { 'grafana':
     cfg => {
       app_mode => 'production',
@@ -22,5 +19,18 @@ node 'grafana' {
         allow_sign_up => false,
       },
     },
+  }
+
+  class { '::collectd':
+    purge           => true,
+    recurse         => true,
+    purge_config    => true,
+    minimum_version => '5.4',
+  }
+
+  class { 'prometheus::node_exporter':
+    version            => '0.17.0',
+    collectors_disable => ['loadavg', 'mdadm'],
+    extra_options      => '--collector.ntp.server ntp1.orange.intra',
   }
 }
