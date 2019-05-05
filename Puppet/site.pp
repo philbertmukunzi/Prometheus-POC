@@ -14,8 +14,32 @@ node 'default' {
     purge           => true,
     recurse         => true,
     purge_config    => true,
-    minimum_version => '5.4',
+    minimum_version => '10.1.0',
+
   }
+
+  class { 'collectd::plugin::cpu':
+    reportbystate => true,
+    reportbycpu => true,
+    valuespercentage => true,
+  }
+
+  class { 'collectd::plugin::disk':
+    disks          => ['/^dm/'],
+    ignoreselected => true,
+    udevnameattr   => 'DM_NAME',
+  }
+
+  class { 'collectd::plugin::memory':
+  }
+
+
+
+
+  class { 'collectd::plugin::write_prometheus':
+    port => '9103',
+  }
+
 }
 
 #Prometheus Configuration
@@ -59,6 +83,22 @@ node 'prometheus' {
           }
         ],
       },
+
+      #Grafana scrapejob
+      {
+        'job_name'        => 'grafana',
+        'scrape_interval' => '10s',
+        'scrape_timeout'  => '10s',
+        'static_configs'  => [
+          {
+            'targets' => [ 'grafana.prompoc.io:3000', ],
+            'labels'  => {
+              'alias' => 'grafana',
+            }
+          }
+        ],
+      },
+
       #The node scrapejob roles, scrapes all the information from the prometheus node_exporter
       {
         'job_name'        => 'node',
@@ -69,6 +109,20 @@ node 'prometheus' {
             'targets' => [ 'prometheus.prompoc.io:9100', 'grafana.prompoc.io:9100', 'tenant1.prompoc.io:9100', 'tenant2.prompoc.io:9100' ],
             'labels'  => {
               'alias' => 'Nodes',
+            }
+          }
+        ],
+      },
+      #Grafana scrapejob
+      {
+        'job_name'        => 'collectd',
+        'scrape_interval' => '10s',
+        'scrape_timeout'  => '10s',
+        'static_configs'  => [
+          {
+            'targets' => [ 'prometheus.prompoc.io:9103', 'grafana.prompoc.io:9103', 'tenant1.prompoc.io:9103', 'tenant2.prompoc.io:9103', 'puppet.prompoc.io:9013' ],
+            'labels'  => {
+              'alias' => 'collectd',
             }
           }
         ],
@@ -100,6 +154,42 @@ node 'grafana' {
 }
 
 #Tenant1 Configuration
-node 'tenant1' {
+node 'tenant1cent' {
+  include nginx
+  include prometheus::collectd_exporter
+  include prometheus::mysqld_exporter
+  include prometheus::nginx_vts_exporter
 
+  class { '::mysql::server':
+    root_password           => '#!@$Asd51GAa3',
+    remove_default_accounts => true,
+    override_options        => $override_options
+  }
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Tenant1 Configuration
+node 'tenant2ubu' {
+  include nginx
+  include prometheus::collectd_exporter
+  include '::mysql::server'
+  include prometheus::mysqld_exporter
+  include prometheus::nginx_vts_exporter
 }
